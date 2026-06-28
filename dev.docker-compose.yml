@@ -1,0 +1,16 @@
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: museum_test
+      POSTGRES_USER: museum
+      POSTGRES_PASSWORD: museum
+    ports:
+      - "54330:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U museum -d museum_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

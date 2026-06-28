@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: museum
+      POSTGRES_USER: museum
+      POSTGRES_PASSWORD: museum
+    ports:
+      - "54329:5432"
+    volumes:
+      - museum-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U museum -d museum"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  museum-postgres-data:
