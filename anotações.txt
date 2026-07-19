@@ -24,4 +24,6 @@ Verifiquei que no BR-002 e BR-006 quando uma capsula expira, é necessário alte
 poderiamos implementar o celery beat para usarmos o cronjob, atualizando de forma automatica buscando por reservas expiradas, mas aumentaria a complexidade do projeto. 
 Prezando pela simplicidade optei por usar um cron para ser rodado via makefile. Pensando novamente em concorrencia.
 
+Agora adicionando django filters no settings e no pyproject. Nenhum endpoint de listagem tem paginação implementada, o BR-008 cita a paginação em endpoints de listagem.
+Paginação global implementada para retornar 20 objetos. 
 
