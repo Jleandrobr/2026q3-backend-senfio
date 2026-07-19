@@ -16,7 +16,7 @@ Não existe implementação para devolver capsula. Realizando a implementação.
 
 Começo a implementar autenticação e autorização. Pelo tempo melhor implementar uma autenticação por token.
 
-Implementei tambem a aprovação de uma reserva rara ou unica de acordo com o BR-002.
+Com a implementação de autenticação por token, implementei tambem a aprovação de uma reserva rara ou unica de acordo com o BR-002.
 
 Parti para o uso do transaction atomic para que somente uma transação de certo na reserva de capsulas.
 
@@ -26,4 +26,9 @@ Prezando pela simplicidade optei por usar um cron para ser rodado via makefile. 
 
 Agora adicionando django filters no settings e no pyproject. Nenhum endpoint de listagem tem paginação implementada, o BR-008 cita a paginação em endpoints de listagem.
 Paginação global implementada para retornar 20 objetos. 
+
+Analisando os BRs-001, 002, 004, 006. Cobertos e ajustados, decidi focar no webrook (BR-003). Já tem uma implementação para receber o event type de quarentena.
+Mas ainda não esta idempotente.
+
+
 

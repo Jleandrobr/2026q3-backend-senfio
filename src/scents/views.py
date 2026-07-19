@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -7,6 +8,7 @@ from rest_framework.views import APIView
 from scents.models import (
     Batch,
     Capsule,
+    ExternalEvent,
     MuseumProfile,
     QualityCheck,
     Reservation,
@@ -148,10 +150,42 @@ class ExternalMuseumWebhookView(APIView):
     def post(self, request):
         serializer = ExternalEventSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        event = serializer.save(processed_at=timezone.now())
+        data = serializer.validated_data
 
-        if event.event_type == "capsule.quarantined":
-            capsule_id = event.payload.get("capsule_id")
-            Capsule.objects.filter(id=capsule_id).update(status=Capsule.Status.QUARANTINE)
+        capsule = None
+        if data["event_type"] == "capsule.quarantined":
+            capsule_id = data.get("payload", {}).get("capsule_id")
+            capsule = Capsule.objects.filter(pk=capsule_id).first()
 
-        return Response(ExternalEventSerializer(event).data, status=status.HTTP_201_CREATED)
+            if capsule is None:
+                return Response(
+                    {"detail": "Não corresponde a nenhuma cápsula."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        with transaction.atomic():
+            event, created = ExternalEvent.objects.get_or_create(
+                source=data["source"],
+                event_id=data["event_id"],
+                defaults={
+                    "event_type": data["event_type"],
+                    "payload": data.get("payload", {}),
+                    "processed_at": timezone.now(),
+                },
+            )
+
+            if created and capsule is not None:
+                capsule = Capsule.objects.select_for_update().get(pk=capsule.pk)
+
+                record_status_change(
+                    capsule,
+                    Capsule.Status.QUARANTINE,
+                    actor="sistema (evento externo)",
+                    reason=f"evento externo {event.source}:{event.event_id}",
+                )
+
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(
+            ExternalEventSerializer(event).data,
+            status=response_status,
+        )

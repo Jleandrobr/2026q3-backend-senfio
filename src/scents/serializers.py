@@ -122,6 +122,7 @@ class ExternalEventSerializer(serializers.ModelSerializer):
         model = ExternalEvent
         fields = ["id", "event_id", "source", "event_type", "payload", "processed_at", "created_at"]
         read_only_fields = ["processed_at", "created_at"]
+        validators = []
 
 
 class MuseumProfileSerializer(serializers.ModelSerializer):
