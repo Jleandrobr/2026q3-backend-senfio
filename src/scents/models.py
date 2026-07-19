@@ -69,6 +69,11 @@ class Capsule(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.rarity in {self.Rarity.RARE, self.Rarity.UNIQUE}:
+            self.requires_manual_approval = True
+        super().save(*args, **kwargs)
+
 
 class Reservation(models.Model):
     class Status(models.TextChoices):

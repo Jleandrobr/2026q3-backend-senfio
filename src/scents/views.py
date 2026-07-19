@@ -38,6 +38,13 @@ class CapsuleViewSet(viewsets.ModelViewSet):
     filterset_fields = ["status", "rarity"]
     permission_classes = [IsCurator]
 
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        capsule = self.get_object()
+        capsule.requires_manual_approval = False
+        capsule.save(update_fields=["requires_manual_approval", "updated_at"])
+        return Response(self.get_serializer(capsule).data)
+
 
 class ReservationViewSet(viewsets.ModelViewSet):
     queryset = Reservation.objects.select_related("capsule", "capsule__batch").all()
@@ -61,6 +68,12 @@ class ReservationViewSet(viewsets.ModelViewSet):
             reservation.capsule.save(update_fields=["status", "updated_at"])
             return Response(
                 {"detail": "Reserva expirada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if reservation.capsule.requires_manual_approval:
+            return Response(
+                {"detail": "Cápsula rara/única exige aprovação do curador antes da retirada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

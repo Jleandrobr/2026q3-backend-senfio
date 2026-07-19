@@ -28,3 +28,21 @@ def test_list_capsules_includes_batch_code(api_client, capsule):
 
     assert response.status_code == 200
     assert response.data[0]["batch_code"] == capsule.batch.code
+
+
+def test_rare_capsule_always_requires_manual_approval(curator_client, batch):
+    response = curator_client.post(
+        "/api/capsules/",
+        {
+            "batch": batch.id,
+            "name": "Cápsula rara sem flag explícita",
+            "scent_profile": "teste",
+            "rarity": "rare",
+            "requires_manual_approval": False,
+            "expires_at": str(timezone.localdate() + timedelta(days=30)),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["requires_manual_approval"] is True

@@ -91,6 +91,26 @@ def test_technician_cannot_manage_profiles(technician_client):
     assert response.status_code == 403
 
 
+def test_technician_cannot_approve_capsule(technician_client, capsule):
+    capsule.requires_manual_approval = True
+    capsule.save(update_fields=["requires_manual_approval"])
+
+    response = technician_client.post(f"/api/capsules/{capsule.id}/approve/")
+
+    assert response.status_code == 403
+
+
+def test_curator_can_approve_capsule(curator_client, capsule):
+    capsule.requires_manual_approval = True
+    capsule.save(update_fields=["requires_manual_approval"])
+
+    response = curator_client.post(f"/api/capsules/{capsule.id}/approve/")
+
+    assert response.status_code == 200
+    capsule.refresh_from_db()
+    assert capsule.requires_manual_approval is False
+
+
 def test_curator_can_manage_profiles(curator_client, django_user_model):
     another_user = django_user_model.objects.create_user(username="novo-perfil")
 

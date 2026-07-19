@@ -14,6 +14,8 @@ Verificando as checagem das reservas e checkout. Vi que capsulas raras ou unicas
 
 Não existe implementação para devolver capsula. Realizando a implementação.
 
-Começo a implementar autenticação e autorização.
+Começo a implementar autenticação e autorização. Pelo tempo melhor implementar uma autenticação por token.
+
+Implementei tambem a aprovação de uma reserva rara ou unica de acordo com o BR-002.
 
 
