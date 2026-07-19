@@ -1,4 +1,4 @@
-.PHONY: bootstrap doctor ci ci-check up down logs clean_db test test-up test-down migrate seed run shell
+.PHONY: bootstrap doctor ci ci-check up down logs run-docker clean_db test test-up test-down migrate seed run shell
 
 PYTHON := uv run python
 # O projeto Django vive em src/ (config, scents, tests e manage.py).
@@ -74,6 +74,12 @@ seed:
 
 run:
 	$(MANAGE) runserver
+
+# Caminho alternativo ao `make run`: sobe a API dentro do Docker (serviço
+# `web`, com live-reload via bind mount de src/) em vez de rodar via `uv run`
+# local. `make down` derruba tudo.
+run-docker:
+	docker compose up -d --build web
 
 shell:
 	$(MANAGE) shell

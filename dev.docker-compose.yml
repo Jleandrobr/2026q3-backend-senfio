@@ -9,6 +9,9 @@ services:
       - "54330:5432"
     tmpfs:
       - /var/lib/postgresql/data
+      - /var/run/postgresql
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U museum -d museum_test"]
       interval: 2s

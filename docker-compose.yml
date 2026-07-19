@@ -2,18 +2,45 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: museum
-      POSTGRES_USER: museum
-      POSTGRES_PASSWORD: museum
+      POSTGRES_DB: ${POSTGRES_DB:-museum}
+      POSTGRES_USER: ${POSTGRES_USER:-museum}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-museum}
     ports:
       - "54329:5432"
     volumes:
       - museum-postgres-data:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U museum -d museum"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-museum} -d ${POSTGRES_DB:-museum}"]
       interval: 2s
       timeout: 3s
       retries: 15
+
+  web:
+    build: .
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-change-me}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_URL: postgres://${POSTGRES_USER:-museum}:${POSTGRES_PASSWORD:-museum}@db:5432/${POSTGRES_DB:-museum}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
 volumes:
   museum-postgres-data:
