@@ -70,8 +70,11 @@ class ReservationSerializer(serializers.ModelSerializer):
         if capsule.expires_at < timezone.localdate():
             raise serializers.ValidationError("Cápsula vencida não pode ser reservada.")
 
-        if capsule.status == Capsule.Status.CHECKED_OUT:
-            raise serializers.ValidationError("Cápsula já está retirada.")
+        if capsule.status != Capsule.Status.AVAILABLE:
+            raise serializers.ValidationError("Cápsula não está disponível para reserva.")
+
+        if Reservation.objects.filter(capsule=capsule, status=Reservation.Status.PENDING).exists():
+            raise serializers.ValidationError("Cápsula já possui uma reserva pendente.")
 
         return attrs
 
@@ -83,6 +86,10 @@ class ReservationSerializer(serializers.ModelSerializer):
             reason=f"reserva criada para {reservation.visitor_name}",
         )
         return reservation
+
+class ReturnReservationSerializer(serializers.Serializer):
+    damaged = serializers.BooleanField(default=False)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class QualityCheckSerializer(serializers.ModelSerializer):

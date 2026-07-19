@@ -1,0 +1,19 @@
+Primeiro criei o docker do backend.
+
+Segundo revisar todo o fluxo começando do BR-001 e 002. (notei que o endpoint GET /api/capsules/{id}/timeline/ não esta implementado).
+
+Vi que a implementação da reserva de capsules esta incompleta, adicionei validações de restringir se o status for diferente de "AVAILABLE", que ja cobre (fora de quarentena e sem reserva ativa).
+
+cápsula → reserva → checkout → (devolução não implementada) → inspeção decide se volta ao acervo ou vai pra quarentena
+
+Verifiquei o endpoint de lista as transições de status registradas. Funcionando, ao mesmo testei cadastrar a capsula 01 que já tinha feito a reserva e foi bloqueado pela api.
+
+Olhando que a reserva de capsula precisa impedir de que uma capsula seja reservado por race condition. (Primeiro irei prioziar as implementações mais simples)
+
+Verificando as checagem das reservas e checkout. Vi que capsulas raras ou unicas exigem aprovação manual do curador, para isso precisarei implementar autenticação e autorização.
+
+Não existe implementação para devolver capsula. Realizando a implementação.
+
+Começo a implementar autenticação e autorização.
+
+

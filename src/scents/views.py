@@ -11,6 +11,7 @@ from scents.models import (
     QualityCheck,
     Reservation,
     StatusChange,
+    record_status_change,
 )
 from scents.permissions import IsCurator
 from scents.serializers import (
@@ -20,6 +21,7 @@ from scents.serializers import (
     MuseumProfileSerializer,
     QualityCheckSerializer,
     ReservationSerializer,
+    ReturnReservationSerializer,
     StatusChangeSerializer,
 )
 
@@ -65,6 +67,50 @@ class ReservationViewSet(viewsets.ModelViewSet):
         reservation.capsule.status = Capsule.Status.CHECKED_OUT
         reservation.save(update_fields=["status", "checked_out_at"])
         reservation.capsule.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(reservation).data)
+
+    @action(detail=True, methods=["post"], url_path="return")
+    def return_capsule(self, request, pk=None):
+        reservation = self.get_object()
+
+        if reservation.status != Reservation.Status.CHECKED_OUT:
+            return Response(
+                {"detail": "Somente reservas retiradas podem ser devolvidas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ReturnReservationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        damaged = serializer.validated_data["damaged"]
+        notes = serializer.validated_data["notes"]
+
+        reservation.status = Reservation.Status.RETURNED
+        reservation.returned_at = timezone.now()
+        reservation.return_notes = notes
+        reservation.save(update_fields=["status", "returned_at", "return_notes"])
+
+        if damaged:
+            record_status_change(
+                reservation.capsule,
+                Capsule.Status.QUARANTINE,
+                reason="devolução com dano",
+            )
+
+            QualityCheck.objects.create(
+                capsule=reservation.capsule,
+                reservation=reservation,
+                inspector_name="Sistema",
+                result=QualityCheck.Result.DAMAGED,
+                notes=notes,
+            )
+        else:
+            record_status_change(
+                reservation.capsule,
+                Capsule.Status.AVAILABLE,
+                reason="devolução sem dano",
+            )
+
         return Response(self.get_serializer(reservation).data)
 
 

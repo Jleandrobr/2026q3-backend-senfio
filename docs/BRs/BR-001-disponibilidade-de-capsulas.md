@@ -27,5 +27,5 @@ cápsula chegando ao mesmo tempo não podem, os dois, ter sucesso.
 - Dado uma cápsula vencida, quando uma reserva for criada, então a API deve rejeitar a reserva.
 - Dado uma cápsula em quarentena, quando uma reserva for criada, então a API deve rejeitar a reserva.
 - Dado uma cápsula com reserva ativa, quando outra reserva for criada, então a API deve rejeitar a nova reserva.
-- Dado duas requisições de reserva concorrentes para a mesma cápsula disponível, quando ambas forem processadas, então no máximo uma deve ter sucesso e a outra deve ser rejeitada.
-- Dado uma inspeção reprovada, quando ela for registrada, então a cápsula deve ir para quarentena.
+- Dado duas requisições de reserva concorrentes para a mesma cápsula disponível, quando ambas forem processadas, então no máximo uma deve ter sucesso e a outra deve ser rejeitada. **
+- Dado uma inspeção reprovada, quando ela for registrada, então a cápsula deve ir para quarentena. **
