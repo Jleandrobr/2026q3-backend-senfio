@@ -87,6 +87,7 @@ class ReservationSerializer(serializers.ModelSerializer):
         )
         return reservation
 
+
 class ReturnReservationSerializer(serializers.Serializer):
     damaged = serializers.BooleanField(default=False)
     notes = serializers.CharField(required=False, allow_blank=True, default="")

@@ -3,8 +3,8 @@ from datetime import timedelta
 from django.utils import timezone
 
 
-def test_create_capsule(api_client, batch):
-    response = api_client.post(
+def test_create_capsule(curator_client, batch):
+    response = curator_client.post(
         "/api/capsules/",
         {
             "batch": batch.id,

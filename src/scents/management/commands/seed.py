@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
 
 from scents.models import Batch, Capsule, MuseumProfile, Reservation
 
@@ -163,3 +164,5 @@ class Command(BaseCommand):
                 user=user,
                 defaults={"display_name": display_name, "role": role},
             )
+            token, _ = Token.objects.get_or_create(user=user)
+            self.stdout.write(f"{display_name} ({role}): Token {token.key}")

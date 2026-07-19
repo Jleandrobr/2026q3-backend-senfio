@@ -13,7 +13,7 @@ from scents.models import (
     StatusChange,
     record_status_change,
 )
-from scents.permissions import IsCurator
+from scents.permissions import IsCurator, IsTechnician
 from scents.serializers import (
     BatchSerializer,
     CapsuleSerializer,
@@ -29,12 +29,14 @@ from scents.serializers import (
 class BatchViewSet(viewsets.ModelViewSet):
     queryset = Batch.objects.all()
     serializer_class = BatchSerializer
+    permission_classes = [IsCurator]
 
 
 class CapsuleViewSet(viewsets.ModelViewSet):
     queryset = Capsule.objects.select_related("batch").all()
     serializer_class = CapsuleSerializer
     filterset_fields = ["status", "rarity"]
+    permission_classes = [IsCurator]
 
 
 class ReservationViewSet(viewsets.ModelViewSet):
@@ -117,6 +119,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 class QualityCheckViewSet(viewsets.ModelViewSet):
     queryset = QualityCheck.objects.select_related("capsule", "reservation").all()
     serializer_class = QualityCheckSerializer
+    permission_classes = [IsTechnician]
 
 
 class MuseumProfileViewSet(viewsets.ModelViewSet):
