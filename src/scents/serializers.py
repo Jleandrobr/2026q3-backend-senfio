@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -70,21 +71,30 @@ class ReservationSerializer(serializers.ModelSerializer):
         if capsule.expires_at < timezone.localdate():
             raise serializers.ValidationError("Cápsula vencida não pode ser reservada.")
 
-        if capsule.status != Capsule.Status.AVAILABLE:
-            raise serializers.ValidationError("Cápsula não está disponível para reserva.")
-
-        if Reservation.objects.filter(capsule=capsule, status=Reservation.Status.PENDING).exists():
-            raise serializers.ValidationError("Cápsula já possui uma reserva pendente.")
-
         return attrs
 
     def create(self, validated_data):
-        reservation = Reservation.objects.create(**validated_data)
-        record_status_change(
-            reservation.capsule,
-            Capsule.Status.RESERVED,
-            reason=f"reserva criada para {reservation.visitor_name}",
-        )
+        capsule_id = validated_data["capsule"].id
+
+        with transaction.atomic():
+            capsule = Capsule.objects.select_for_update().get(pk=capsule_id)
+
+            if capsule.status != Capsule.Status.AVAILABLE:
+                raise serializers.ValidationError("Cápsula não está disponível para reserva.")
+
+            if Reservation.objects.filter(
+                capsule=capsule, status=Reservation.Status.PENDING
+            ).exists():
+                raise serializers.ValidationError("Cápsula já possui uma reserva pendente.")
+
+            validated_data["capsule"] = capsule
+            reservation = Reservation.objects.create(**validated_data)
+            record_status_change(
+                reservation.capsule,
+                Capsule.Status.RESERVED,
+                reason=f"reserva criada para {reservation.visitor_name}",
+            )
+
         return reservation
 
 
