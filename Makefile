@@ -1,4 +1,4 @@
-.PHONY: bootstrap doctor ci ci-check up down logs run-docker clean_db test test-up test-down migrate seed run shell
+.PHONY: bootstrap doctor ci ci-check up down logs run-docker clean_db test test-up test-down migrate seed expire_reservations run shell
 
 PYTHON := uv run python
 # O projeto Django vive em src/ (config, scents, tests e manage.py).
@@ -71,6 +71,10 @@ migrate:
 
 seed:
 	$(MANAGE) seed
+
+# Rodar periodicamente (cron) no lugar de depender de alguém chamar o checkout.
+expire_reservations:
+	$(MANAGE) expire_reservations
 
 run:
 	$(MANAGE) runserver

@@ -11,6 +11,7 @@ from scents.models import (
     QualityCheck,
     Reservation,
     StatusChange,
+    expire_reservation,
     record_status_change,
 )
 from scents.permissions import IsCurator, IsTechnician
@@ -62,10 +63,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             )
 
         if reservation.pickup_deadline < now:
-            reservation.status = Reservation.Status.EXPIRED
-            reservation.capsule.status = Capsule.Status.AVAILABLE
-            reservation.save(update_fields=["status"])
-            reservation.capsule.save(update_fields=["status", "updated_at"])
+            expire_reservation(reservation, reason="expirada ao tentar retirada após o prazo")
             return Response(
                 {"detail": "Reserva expirada."},
                 status=status.HTTP_400_BAD_REQUEST,

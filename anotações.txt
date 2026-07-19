@@ -18,4 +18,10 @@ Começo a implementar autenticação e autorização. Pelo tempo melhor implemen
 
 Implementei tambem a aprovação de uma reserva rara ou unica de acordo com o BR-002.
 
+Parti para o uso do transaction atomic para que somente uma transação de certo na reserva de capsulas.
+
+Verifiquei que no BR-002 e BR-006 quando uma capsula expira, é necessário alterar seu status. Além disso, é preciso que ninguem tenha que chamar o checkout, para isso 
+poderiamos implementar o celery beat para usarmos o cronjob, atualizando de forma automatica buscando por reservas expiradas, mas aumentaria a complexidade do projeto. 
+Prezando pela simplicidade optei por usar um cron para ser rodado via makefile. Pensando novamente em concorrencia.
+
 

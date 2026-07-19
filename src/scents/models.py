@@ -179,3 +179,15 @@ def record_status_change(capsule, to_status, actor="", reason=""):
     )
     capsule.status = to_status
     capsule.save(update_fields=["status", "updated_at"])
+
+
+def expire_reservation(reservation, reason=""):
+    """Expira uma reserva pendente vencida e libera a cápsula (BR-006).
+
+    Compartilhado pelo comando recorrente de expiração e pelo checkout
+    tardio de uma reserva já vencida, para que as duas trilhas de auditoria
+    fiquem idênticas.
+    """
+    reservation.status = Reservation.Status.EXPIRED
+    reservation.save(update_fields=["status"])
+    record_status_change(reservation.capsule, Capsule.Status.AVAILABLE, reason=reason)
