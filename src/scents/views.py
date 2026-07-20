@@ -100,15 +100,16 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        reservation.status = Reservation.Status.CHECKED_OUT
-        reservation.checked_out_at = now
-        reservation.save(update_fields=["status", "checked_out_at"])
-        record_status_change(
-            reservation.capsule,
-            Capsule.Status.CHECKED_OUT,
-            actor=describe_actor(request, fallback=f"visitante: {reservation.visitor_name}"),
-            reason=f"retirada por {reservation.visitor_name}",
-        )
+        with transaction.atomic():
+            reservation.status = Reservation.Status.CHECKED_OUT
+            reservation.checked_out_at = now
+            reservation.save(update_fields=["status", "checked_out_at"])
+            record_status_change(
+                reservation.capsule,
+                Capsule.Status.CHECKED_OUT,
+                actor=describe_actor(request, fallback=f"visitante: {reservation.visitor_name}"),
+                reason=f"retirada por {reservation.visitor_name}",
+            )
         return Response(self.get_serializer(reservation).data)
 
     @action(detail=True, methods=["post"], url_path="return")
@@ -127,34 +128,35 @@ class ReservationViewSet(viewsets.ModelViewSet):
         damaged = serializer.validated_data["damaged"]
         notes = serializer.validated_data["notes"]
 
-        reservation.status = Reservation.Status.RETURNED
-        reservation.returned_at = timezone.now()
-        reservation.return_notes = notes
-        reservation.save(update_fields=["status", "returned_at", "return_notes"])
-        actor = describe_actor(request, fallback=f"visitante: {reservation.visitor_name}")
+        with transaction.atomic():
+            reservation.status = Reservation.Status.RETURNED
+            reservation.returned_at = timezone.now()
+            reservation.return_notes = notes
+            reservation.save(update_fields=["status", "returned_at", "return_notes"])
+            actor = describe_actor(request, fallback=f"visitante: {reservation.visitor_name}")
 
-        if damaged:
-            record_status_change(
-                reservation.capsule,
-                Capsule.Status.QUARANTINE,
-                actor=actor,
-                reason="devolução com dano",
-            )
+            if damaged:
+                record_status_change(
+                    reservation.capsule,
+                    Capsule.Status.QUARANTINE,
+                    actor=actor,
+                    reason="devolução com dano",
+                )
 
-            QualityCheck.objects.create(
-                capsule=reservation.capsule,
-                reservation=reservation,
-                inspector_name="Sistema",
-                result=QualityCheck.Result.DAMAGED,
-                notes=notes,
-            )
-        else:
-            record_status_change(
-                reservation.capsule,
-                Capsule.Status.AVAILABLE,
-                actor=actor,
-                reason="devolução sem dano",
-            )
+                QualityCheck.objects.create(
+                    capsule=reservation.capsule,
+                    reservation=reservation,
+                    inspector_name="Sistema",
+                    result=QualityCheck.Result.DAMAGED,
+                    notes=notes,
+                )
+            else:
+                record_status_change(
+                    reservation.capsule,
+                    Capsule.Status.AVAILABLE,
+                    actor=actor,
+                    reason="devolução sem dano",
+                )
 
         return Response(self.get_serializer(reservation).data)
 

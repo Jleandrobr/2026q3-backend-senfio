@@ -40,3 +40,5 @@ Olhando BR-007 ainda não existe o endpoint de listar a timeline de uma capsula.
 Lendo a BR-005 fala sobre aposentar uma capsula é preciso passar pelo helper de auditoria. Irei criar o endpoint de aposentar capsula e mudar o status para RETIRED.
 
 Seguindo pelo BR-005 e BR-007 falam que é preciso identificar o autor da transação para auditoria, exceto para eventos do sistema.
+
+Olhando o BR-008 ele cita as integridades das transações. Sabendo disso nem todos os endpoints de criar ou atualizar tem o transaction.atomic. Irei adicionar.

@@ -116,14 +116,15 @@ class QualityCheckSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
     def create(self, validated_data):
-        check = QualityCheck.objects.create(**validated_data)
-        if check.result in {QualityCheck.Result.FAILED, QualityCheck.Result.DAMAGED}:
-            record_status_change(
-                check.capsule,
-                Capsule.Status.QUARANTINE,
-                actor=describe_actor(self.context.get("request")),
-                reason=f"inspeção reprovada ({check.get_result_display()})",
-            )
+        with transaction.atomic():
+            check = QualityCheck.objects.create(**validated_data)
+            if check.result in {QualityCheck.Result.FAILED, QualityCheck.Result.DAMAGED}:
+                record_status_change(
+                    check.capsule,
+                    Capsule.Status.QUARANTINE,
+                    actor=describe_actor(self.context.get("request")),
+                    reason=f"inspeção reprovada ({check.get_result_display()})",
+                )
         return check
 
 

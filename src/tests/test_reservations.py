@@ -232,6 +232,39 @@ def test_return_with_damage_records_actor(api_client, capsule):
     assert change.actor == "visitante: Bruno"
 
 
+def test_return_with_damage_is_atomic_if_quality_check_creation_fails(
+    api_client, capsule, monkeypatch
+):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        status=Reservation.Status.CHECKED_OUT,
+        starts_at=timezone.now() - timedelta(hours=1),
+        pickup_deadline=timezone.now() + timedelta(hours=1),
+        checked_out_at=timezone.now() - timedelta(hours=1),
+    )
+    capsule.status = Capsule.Status.CHECKED_OUT
+    capsule.save(update_fields=["status"])
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("falha simulada na criação da inspeção")
+
+    monkeypatch.setattr("scents.views.QualityCheck.objects.create", boom)
+
+    with pytest.raises(RuntimeError):
+        api_client.post(
+            f"/api/reservations/{reservation.id}/return/", {"damaged": True}, format="json"
+        )
+
+    reservation.refresh_from_db()
+    capsule.refresh_from_db()
+    assert reservation.status == Reservation.Status.CHECKED_OUT
+    assert capsule.status == Capsule.Status.CHECKED_OUT
+    assert not StatusChange.objects.filter(
+        capsule=capsule, to_status=Capsule.Status.QUARANTINE
+    ).exists()
+
+
 @pytest.mark.django_db(transaction=True)
 def test_concurrent_reservations_only_one_succeeds(batch):
     capsule = Capsule.objects.create(

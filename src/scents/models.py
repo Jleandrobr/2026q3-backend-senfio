@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 
 
 class MuseumProfile(models.Model):
@@ -184,16 +184,17 @@ def record_status_change(capsule, to_status, actor="", reason=""):
 
     Move a cápsula para `to_status` e cria o `StatusChange` correspondente.
     """
-    from_status = capsule.status
-    StatusChange.objects.create(
-        capsule=capsule,
-        from_status=from_status,
-        to_status=to_status,
-        actor=actor,
-        reason=reason,
-    )
-    capsule.status = to_status
-    capsule.save(update_fields=["status", "updated_at"])
+    with transaction.atomic():
+        from_status = capsule.status
+        StatusChange.objects.create(
+            capsule=capsule,
+            from_status=from_status,
+            to_status=to_status,
+            actor=actor,
+            reason=reason,
+        )
+        capsule.status = to_status
+        capsule.save(update_fields=["status", "updated_at"])
 
 
 def expire_reservation(reservation, reason="", actor="sistema"):
@@ -203,6 +204,9 @@ def expire_reservation(reservation, reason="", actor="sistema"):
     tardio de uma reserva já vencida, para que as duas trilhas de auditoria
     fiquem idênticas.
     """
-    reservation.status = Reservation.Status.EXPIRED
-    reservation.save(update_fields=["status"])
-    record_status_change(reservation.capsule, Capsule.Status.AVAILABLE, actor=actor, reason=reason)
+    with transaction.atomic():
+        reservation.status = Reservation.Status.EXPIRED
+        reservation.save(update_fields=["status"])
+        record_status_change(
+            reservation.capsule, Capsule.Status.AVAILABLE, actor=actor, reason=reason
+        )
