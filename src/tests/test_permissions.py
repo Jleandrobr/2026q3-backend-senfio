@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from scents.models import Reservation, record_status_change
+from scents.models import MuseumProfile, Reservation, record_status_change
 
 
 def test_create_capsule_without_profile_is_rejected(api_client, batch):
@@ -42,6 +42,14 @@ def test_curator_can_retire_capsule(curator_client, capsule):
     assert capsule.status == "retired"
 
 
+def test_technician_cannot_retire_capsule_via_retire_action(technician_client, capsule):
+    response = technician_client.post(f"/api/capsules/{capsule.id}/retire/")
+
+    assert response.status_code == 403
+    capsule.refresh_from_db()
+    assert capsule.status != "retired"
+
+
 def test_capsules_are_readable_without_authentication(api_client, capsule):
     response = api_client.get("/api/capsules/")
 
@@ -52,6 +60,16 @@ def test_visitor_cannot_register_quality_check(visitor_client, capsule):
     response = visitor_client.post(
         "/api/quality-checks/",
         {"capsule": capsule.id, "inspector_name": "Vera", "result": "passed"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+
+def test_curator_cannot_register_quality_check(curator_client, capsule):
+    response = curator_client.post(
+        "/api/quality-checks/",
+        {"capsule": capsule.id, "inspector_name": "Ana", "result": "passed"},
         format="json",
     )
 
@@ -123,6 +141,36 @@ def test_curator_can_manage_profiles(curator_client, django_user_model):
     )
 
     assert response.status_code == 201
+
+
+def test_curator_can_promote_profile(curator_client, django_user_model):
+    user = django_user_model.objects.create_user(username="alguem")
+    profile = MuseumProfile.objects.create(
+        user=user, display_name="Alguém", role=MuseumProfile.Role.VISITOR
+    )
+
+    response = curator_client.patch(
+        f"/api/profiles/{profile.id}/", {"role": "curator"}, format="json"
+    )
+
+    assert response.status_code == 200
+    profile.refresh_from_db()
+    assert profile.role == MuseumProfile.Role.CURATOR
+
+
+def test_technician_cannot_promote_profile(technician_client, django_user_model):
+    user = django_user_model.objects.create_user(username="outra-pessoa")
+    profile = MuseumProfile.objects.create(
+        user=user, display_name="Outra Pessoa", role=MuseumProfile.Role.VISITOR
+    )
+
+    response = technician_client.patch(
+        f"/api/profiles/{profile.id}/", {"role": "curator"}, format="json"
+    )
+
+    assert response.status_code == 403
+    profile.refresh_from_db()
+    assert profile.role == MuseumProfile.Role.VISITOR
 
 
 def test_status_changes_cannot_be_created_via_api(curator_client, capsule):

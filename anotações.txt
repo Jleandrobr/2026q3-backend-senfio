@@ -44,3 +44,5 @@ Seguindo pelo BR-005 e BR-007 falam que é preciso identificar o autor da transa
 Olhando o BR-008 ele cita as integridades das transações. Sabendo disso nem todos os endpoints de criar ou atualizar tem o transaction.atomic. Irei adicionar.
 
 Ainda no BR-008 cita o relatório de ocupação que retorna a quantidade de capsulas por status.
+
+Criando os testes unitarios baseados nos criteiros de aceitação.

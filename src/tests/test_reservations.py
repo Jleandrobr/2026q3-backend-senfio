@@ -143,6 +143,64 @@ def test_reservation_create_records_anonymous_visitor_as_actor(api_client, capsu
     assert change.actor == "visitante: Ana"
 
 
+def test_reservation_creation_registers_available_to_reserved_transition(api_client, capsule):
+    api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Ana",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.RESERVED)
+    assert change.from_status == Capsule.Status.AVAILABLE
+
+
+def test_checkout_registers_reserved_to_checked_out_transition(api_client, capsule):
+    reserve_response = api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Bruno",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+    reservation_id = reserve_response.data["id"]
+
+    api_client.post(f"/api/reservations/{reservation_id}/checkout/")
+
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.CHECKED_OUT)
+    assert change.from_status == Capsule.Status.RESERVED
+
+
+def test_checkout_is_atomic_if_audit_trail_write_fails(api_client, capsule, monkeypatch):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        starts_at=timezone.now() - timedelta(hours=1),
+        pickup_deadline=timezone.now() + timedelta(hours=1),
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("falha simulada na trilha de auditoria")
+
+    monkeypatch.setattr("scents.models.StatusChange.objects.create", boom)
+
+    with pytest.raises(RuntimeError):
+        api_client.post(f"/api/reservations/{reservation.id}/checkout/")
+
+    reservation.refresh_from_db()
+    capsule.refresh_from_db()
+    assert reservation.status == Reservation.Status.PENDING
+    assert reservation.checked_out_at is None
+    assert capsule.status == Capsule.Status.AVAILABLE
+
+
 def test_reservation_create_records_authenticated_profile_as_actor(curator_client, capsule):
     response = curator_client.post(
         "/api/reservations/",
@@ -254,6 +312,21 @@ def test_checkout_succeeds_after_curator_approval(api_client, curator_client, ca
     assert checkout_response.status_code == 200
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.CHECKED_OUT
+
+
+def test_return_rejected_when_reservation_not_checked_out(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        starts_at=timezone.now() + timedelta(days=1),
+        pickup_deadline=timezone.now() + timedelta(days=1, hours=2),
+    )
+
+    response = api_client.post(f"/api/reservations/{reservation.id}/return/")
+
+    assert response.status_code == 400
+    reservation.refresh_from_db()
+    assert reservation.status == Reservation.Status.PENDING
 
 
 def test_return_without_damage_records_actor(api_client, capsule):

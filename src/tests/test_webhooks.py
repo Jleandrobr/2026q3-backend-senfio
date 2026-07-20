@@ -15,6 +15,38 @@ def test_external_webhook_records_event(api_client, capsule):
 
     assert response.status_code == 201
     assert response.data["event_id"] == "evt-001"
+    assert response.data["processed_at"] is not None
+
+
+def test_external_webhook_accepts_unhandled_event_type(api_client, db):
+    response = api_client.post(
+        "/api/webhooks/external-museum/",
+        {
+            "event_id": "evt-005",
+            "source": "museu-parceiro",
+            "event_type": "capsule.shared",
+            "payload": {},
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert ExternalEvent.objects.filter(event_id="evt-005").exists()
+
+
+def test_external_webhook_rejects_payload_missing_required_field(api_client, db):
+    response = api_client.post(
+        "/api/webhooks/external-museum/",
+        {
+            "event_id": "evt-006",
+            "event_type": "capsule.quarantined",
+            "payload": {},
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert not ExternalEvent.objects.filter(event_id="evt-006").exists()
 
 
 def test_external_webhook_quarantines_capsule_with_audit_trail(api_client, capsule):
@@ -32,9 +64,8 @@ def test_external_webhook_quarantines_capsule_with_audit_trail(api_client, capsu
     assert response.status_code == 201
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.QUARANTINE
-    assert StatusChange.objects.filter(
-        capsule=capsule, to_status=Capsule.Status.QUARANTINE
-    ).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.QUARANTINE)
+    assert change.actor == "sistema (evento externo)"
 
 
 def test_external_webhook_is_idempotent_by_source_and_event_id(api_client, capsule):
