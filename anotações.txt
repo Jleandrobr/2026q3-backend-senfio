@@ -30,5 +30,9 @@ Paginação global implementada para retornar 20 objetos.
 Analisando os BRs-001, 002, 004, 006. Cobertos e ajustados, decidi focar no webrook (BR-003). Já tem uma implementação para receber o event type de quarentena.
 Mas ainda não esta idempotente.
 
+Após o ajuste no webrook. Verifiquei que o proximo ajuste poderia ser trilha de auditoria (BR-005).
 
+Utilizando o record_status_change já implementado para registrar uma transição de status na trilha de auditoria, na view de checkout. E utilizando também na reprovação
+de uma capsula.
 
+Olhando BR-007 ainda não existe o endpoint de listar a timeline de uma capsula. Obs: precisa ser em ordem cronologica.

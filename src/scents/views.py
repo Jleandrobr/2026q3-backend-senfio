@@ -48,6 +48,12 @@ class CapsuleViewSet(viewsets.ModelViewSet):
         capsule.save(update_fields=["requires_manual_approval", "updated_at"])
         return Response(self.get_serializer(capsule).data)
 
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, pk=None):
+        capsule = self.get_object()
+        changes = capsule.status_changes.order_by("created_at")
+        return Response(StatusChangeSerializer(changes, many=True).data)
+
 
 class ReservationViewSet(viewsets.ModelViewSet):
     queryset = Reservation.objects.select_related("capsule", "capsule__batch").all()
@@ -79,9 +85,12 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         reservation.status = Reservation.Status.CHECKED_OUT
         reservation.checked_out_at = now
-        reservation.capsule.status = Capsule.Status.CHECKED_OUT
         reservation.save(update_fields=["status", "checked_out_at"])
-        reservation.capsule.save(update_fields=["status", "updated_at"])
+        record_status_change(
+            reservation.capsule,
+            Capsule.Status.CHECKED_OUT,
+            reason=f"retirada por {reservation.visitor_name}",
+        )
         return Response(self.get_serializer(reservation).data)
 
     @action(detail=True, methods=["post"], url_path="return")

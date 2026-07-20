@@ -112,8 +112,11 @@ class QualityCheckSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         check = QualityCheck.objects.create(**validated_data)
         if check.result in {QualityCheck.Result.FAILED, QualityCheck.Result.DAMAGED}:
-            check.capsule.status = Capsule.Status.QUARANTINE
-            check.capsule.save(update_fields=["status", "updated_at"])
+            record_status_change(
+                check.capsule,
+                Capsule.Status.QUARANTINE,
+                reason=f"inspeção reprovada ({check.get_result_display()})",
+            )
         return check
 
 

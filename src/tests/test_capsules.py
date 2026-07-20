@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from scents.models import Capsule
+from scents.models import Capsule, QualityCheck, StatusChange
 
 
 def test_create_capsule(curator_client, batch):
@@ -84,6 +84,56 @@ def test_list_capsules_filters_by_rarity(api_client, capsule):
 
     assert response.status_code == 200
     assert capsule.id not in [item["id"] for item in response.data["results"]]
+
+
+def test_quality_check_failure_quarantines_capsule_with_audit_trail(technician_client, capsule):
+    response = technician_client.post(
+        "/api/quality-checks/",
+        {
+            "capsule": capsule.id,
+            "inspector_name": "Ana",
+            "result": QualityCheck.Result.FAILED,
+            "notes": "cheiro alterado na inspeção de rotina",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    capsule.refresh_from_db()
+    assert capsule.status == Capsule.Status.QUARANTINE
+    assert StatusChange.objects.filter(
+        capsule=capsule, to_status=Capsule.Status.QUARANTINE
+    ).exists()
+
+
+def test_capsule_timeline_is_empty_for_capsule_without_changes(api_client, capsule):
+    response = api_client.get(f"/api/capsules/{capsule.id}/timeline/")
+
+    assert response.status_code == 200
+    assert response.data == []
+
+
+def test_capsule_timeline_lists_status_changes_in_chronological_order(api_client, capsule):
+    reservation_response = api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Bruno",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+    reservation_id = reservation_response.data["id"]
+    api_client.post(f"/api/reservations/{reservation_id}/checkout/")
+
+    response = api_client.get(f"/api/capsules/{capsule.id}/timeline/")
+
+    assert response.status_code == 200
+    to_statuses = [item["to_status"] for item in response.data]
+    assert to_statuses == ["reserved", "checked_out"]
+    created_ats = [item["created_at"] for item in response.data]
+    assert created_ats == sorted(created_ats)
 
 
 def test_rare_capsule_always_requires_manual_approval(curator_client, batch):

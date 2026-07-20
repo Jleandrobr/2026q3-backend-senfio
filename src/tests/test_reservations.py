@@ -43,6 +43,22 @@ def test_checkout_marks_capsule_as_checked_out(api_client, capsule):
     assert capsule.status == Capsule.Status.CHECKED_OUT
 
 
+def test_checkout_creates_audit_trail(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        starts_at=timezone.now() + timedelta(days=1),
+        pickup_deadline=timezone.now() + timedelta(days=1, hours=2),
+    )
+
+    response = api_client.post(f"/api/reservations/{reservation.id}/checkout/")
+
+    assert response.status_code == 200
+    assert StatusChange.objects.filter(
+        capsule=capsule, to_status=Capsule.Status.CHECKED_OUT
+    ).exists()
+
+
 def test_checkout_after_deadline_expires_reservation_with_audit_trail(api_client, capsule):
     capsule.status = Capsule.Status.RESERVED
     capsule.save(update_fields=["status"])
