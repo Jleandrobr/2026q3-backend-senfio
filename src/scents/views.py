@@ -54,6 +54,17 @@ class CapsuleViewSet(viewsets.ModelViewSet):
         changes = capsule.status_changes.order_by("created_at")
         return Response(StatusChangeSerializer(changes, many=True).data)
 
+    @action(detail=True, methods=["post"])
+    def retire(self, request, pk=None):
+        capsule = self.get_object()
+        if capsule.status == Capsule.Status.RETIRED:
+            return Response(
+                {"detail": "Cápsula já está aposentada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        record_status_change(capsule, Capsule.Status.RETIRED, reason="aposentada pela curadoria")
+        return Response(self.get_serializer(capsule).data)
+
 
 class ReservationViewSet(viewsets.ModelViewSet):
     queryset = Reservation.objects.select_related("capsule", "capsule__batch").all()

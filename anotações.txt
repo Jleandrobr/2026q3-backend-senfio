@@ -36,3 +36,5 @@ Utilizando o record_status_change já implementado para registrar uma transiçã
 de uma capsula.
 
 Olhando BR-007 ainda não existe o endpoint de listar a timeline de uma capsula. Obs: precisa ser em ordem cronologica.
+
+Lendo a BR-005 fala sobre aposentar uma capsula é preciso passar pelo helper de auditoria. Irei criar o endpoint de aposentar capsula e mudar o status para RETIRED.

@@ -113,6 +113,32 @@ def test_capsule_timeline_is_empty_for_capsule_without_changes(api_client, capsu
     assert response.data == []
 
 
+def test_curator_retires_capsule_with_audit_trail(curator_client, capsule):
+    response = curator_client.post(f"/api/capsules/{capsule.id}/retire/")
+
+    assert response.status_code == 200
+    capsule.refresh_from_db()
+    assert capsule.status == Capsule.Status.RETIRED
+    assert StatusChange.objects.filter(capsule=capsule, to_status=Capsule.Status.RETIRED).exists()
+
+
+def test_retiring_already_retired_capsule_is_rejected(curator_client, capsule):
+    capsule.status = Capsule.Status.RETIRED
+    capsule.save(update_fields=["status"])
+
+    response = curator_client.post(f"/api/capsules/{capsule.id}/retire/")
+
+    assert response.status_code == 400
+
+
+def test_non_curator_cannot_retire_capsule(api_client, capsule):
+    response = api_client.post(f"/api/capsules/{capsule.id}/retire/")
+
+    assert response.status_code == 403
+    capsule.refresh_from_db()
+    assert capsule.status != Capsule.Status.RETIRED
+
+
 def test_capsule_timeline_lists_status_changes_in_chronological_order(api_client, capsule):
     reservation_response = api_client.post(
         "/api/reservations/",
