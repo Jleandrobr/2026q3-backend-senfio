@@ -7,7 +7,7 @@ from django.db import connection
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from scents.models import Capsule, Reservation, StatusChange
+from scents.models import Capsule, QualityCheck, Reservation, StatusChange
 
 
 def test_reservation_rejects_expired_capsule(api_client, capsule):
@@ -28,6 +28,59 @@ def test_reservation_rejects_expired_capsule(api_client, capsule):
     assert response.status_code == 400
 
 
+def test_reservation_rejects_quarantined_capsule(api_client, capsule):
+    capsule.status = Capsule.Status.QUARANTINE
+    capsule.save(update_fields=["status"])
+
+    response = api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Ana",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+
+
+def test_reservation_rejected_when_capsule_already_has_active_reservation(api_client, capsule):
+    payload = {
+        "capsule": capsule.id,
+        "visitor_name": "Primeira",
+        "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+        "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+    }
+    first_response = api_client.post("/api/reservations/", payload, format="json")
+    assert first_response.status_code == 201
+
+    second_response = api_client.post(
+        "/api/reservations/", {**payload, "visitor_name": "Segunda"}, format="json"
+    )
+
+    assert second_response.status_code == 400
+    assert Reservation.objects.filter(capsule=capsule).count() == 1
+
+
+def test_valid_reservation_moves_capsule_to_reserved(api_client, capsule):
+    response = api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Ana",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    capsule.refresh_from_db()
+    assert capsule.status == Capsule.Status.RESERVED
+
+
 def test_checkout_marks_capsule_as_checked_out(api_client, capsule):
     reservation = Reservation.objects.create(
         capsule=capsule,
@@ -41,6 +94,21 @@ def test_checkout_marks_capsule_as_checked_out(api_client, capsule):
     assert response.status_code == 200
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.CHECKED_OUT
+
+
+def test_checkout_rejected_when_reservation_not_pending(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        status=Reservation.Status.CHECKED_OUT,
+        starts_at=timezone.now() - timedelta(hours=1),
+        pickup_deadline=timezone.now() + timedelta(hours=1),
+        checked_out_at=timezone.now() - timedelta(hours=1),
+    )
+
+    response = api_client.post(f"/api/reservations/{reservation.id}/checkout/")
+
+    assert response.status_code == 400
 
 
 def test_checkout_creates_audit_trail(api_client, capsule):
@@ -203,7 +271,9 @@ def test_return_without_damage_records_actor(api_client, capsule):
     response = api_client.post(f"/api/reservations/{reservation.id}/return/")
 
     assert response.status_code == 200
+    reservation.refresh_from_db()
     capsule.refresh_from_db()
+    assert reservation.status == Reservation.Status.RETURNED
     assert capsule.status == Capsule.Status.AVAILABLE
     change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.AVAILABLE)
     assert change.actor == "visitante: Bruno"
@@ -230,6 +300,9 @@ def test_return_with_damage_records_actor(api_client, capsule):
     assert capsule.status == Capsule.Status.QUARANTINE
     change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.QUARANTINE)
     assert change.actor == "visitante: Bruno"
+    assert QualityCheck.objects.filter(
+        reservation=reservation, result=QualityCheck.Result.DAMAGED
+    ).exists()
 
 
 def test_return_with_damage_is_atomic_if_quality_check_creation_fails(

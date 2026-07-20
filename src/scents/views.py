@@ -79,7 +79,6 @@ class ReservationViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-
     queryset = Reservation.objects.select_related("capsule", "capsule__batch").all()
     serializer_class = ReservationSerializer
 
