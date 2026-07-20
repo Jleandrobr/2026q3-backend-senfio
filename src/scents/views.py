@@ -1,7 +1,7 @@
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -73,7 +73,13 @@ class CapsuleViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(capsule).data)
 
 
-class ReservationViewSet(viewsets.ModelViewSet):
+class ReservationViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+
     queryset = Reservation.objects.select_related("capsule", "capsule__batch").all()
     serializer_class = ReservationSerializer
 
@@ -174,7 +180,9 @@ class MuseumProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsCurator]
 
 
-class StatusChangeViewSet(viewsets.ModelViewSet):
+class StatusChangeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Somente leitura: a trilha é criada por `record_status_change`, nunca pela API."""
+
     queryset = StatusChange.objects.select_related("capsule").all()
     serializer_class = StatusChangeSerializer
 

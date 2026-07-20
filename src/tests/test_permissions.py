@@ -2,6 +2,8 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from scents.models import Reservation, record_status_change
+
 
 def test_create_capsule_without_profile_is_rejected(api_client, batch):
     response = api_client.post(
@@ -121,3 +123,51 @@ def test_curator_can_manage_profiles(curator_client, django_user_model):
     )
 
     assert response.status_code == 201
+
+
+def test_status_changes_cannot_be_created_via_api(curator_client, capsule):
+    response = curator_client.post(
+        "/api/status-changes/",
+        {
+            "capsule": capsule.id,
+            "from_status": "available",
+            "to_status": "retired",
+            "actor": "forjado",
+            "reason": "forjado",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 405
+
+
+def test_status_changes_cannot_be_edited_or_deleted_via_api(curator_client, capsule):
+    record_status_change(capsule, "retired", reason="aposentada pela curadoria")
+    change = capsule.status_changes.get()
+
+    patch_response = curator_client.patch(
+        f"/api/status-changes/{change.id}/", {"reason": "editado"}, format="json"
+    )
+    delete_response = curator_client.delete(f"/api/status-changes/{change.id}/")
+
+    assert patch_response.status_code == 405
+    assert delete_response.status_code == 405
+
+
+def test_reservations_cannot_be_updated_or_deleted_via_api(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        starts_at=timezone.now() + timedelta(days=1),
+        pickup_deadline=timezone.now() + timedelta(days=1, hours=2),
+    )
+
+    patch_response = api_client.patch(
+        f"/api/reservations/{reservation.id}/",
+        {"pickup_deadline": (timezone.now() + timedelta(days=365)).isoformat()},
+        format="json",
+    )
+    delete_response = api_client.delete(f"/api/reservations/{reservation.id}/")
+
+    assert patch_response.status_code == 405
+    assert delete_response.status_code == 405
