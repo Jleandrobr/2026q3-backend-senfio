@@ -105,6 +105,23 @@ def test_quality_check_failure_quarantines_capsule_with_audit_trail(technician_c
     assert change.actor == "tecnico-teste (Técnico)"
 
 
+def test_quarantine_transition_notifies_curatorship(technician_client, capsule, caplog):
+    response = technician_client.post(
+        "/api/quality-checks/",
+        {
+            "capsule": capsule.id,
+            "inspector_name": "Ana",
+            "result": QualityCheck.Result.FAILED,
+            "notes": "cheiro alterado na inspeção de rotina",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert "ALERTA CURADORIA" in caplog.text
+    assert capsule.name in caplog.text
+
+
 def test_capsule_timeline_is_empty_for_capsule_without_changes(api_client, capsule):
     response = api_client.get(f"/api/capsules/{capsule.id}/timeline/")
 

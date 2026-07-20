@@ -1,5 +1,9 @@
+import logging
+
 from django.conf import settings
 from django.db import models, transaction
+
+logger = logging.getLogger(__name__)
 
 
 class MuseumProfile(models.Model):
@@ -179,6 +183,14 @@ def describe_actor(request, fallback=""):
     return f"{profile.display_name} ({profile.get_role_display()})"
 
 
+def notify_quarantine(capsule, reason=""):
+    logger.warning(
+        "ALERTA CURADORIA: cápsula '%s' entrou em quarentena (%s)",
+        capsule.name,
+        reason or "sem motivo informado",
+    )
+
+
 def record_status_change(capsule, to_status, actor="", reason=""):
     """Registra uma transição de status na trilha de auditoria.
 
@@ -195,6 +207,9 @@ def record_status_change(capsule, to_status, actor="", reason=""):
         )
         capsule.status = to_status
         capsule.save(update_fields=["status", "updated_at"])
+
+    if to_status == Capsule.Status.QUARANTINE:
+        notify_quarantine(capsule, reason=reason)
 
 
 def expire_reservation(reservation, reason="", actor="sistema"):
