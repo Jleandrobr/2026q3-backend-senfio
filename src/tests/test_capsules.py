@@ -101,9 +101,8 @@ def test_quality_check_failure_quarantines_capsule_with_audit_trail(technician_c
     assert response.status_code == 201
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.QUARANTINE
-    assert StatusChange.objects.filter(
-        capsule=capsule, to_status=Capsule.Status.QUARANTINE
-    ).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.QUARANTINE)
+    assert change.actor == "tecnico-teste (Técnico)"
 
 
 def test_capsule_timeline_is_empty_for_capsule_without_changes(api_client, capsule):
@@ -119,7 +118,8 @@ def test_curator_retires_capsule_with_audit_trail(curator_client, capsule):
     assert response.status_code == 200
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.RETIRED
-    assert StatusChange.objects.filter(capsule=capsule, to_status=Capsule.Status.RETIRED).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.RETIRED)
+    assert change.actor == "curador-teste (Curador)"
 
 
 def test_retiring_already_retired_capsule_is_rejected(curator_client, capsule):

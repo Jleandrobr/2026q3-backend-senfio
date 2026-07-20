@@ -13,6 +13,7 @@ from scents.models import (
     QualityCheck,
     Reservation,
     StatusChange,
+    describe_actor,
     expire_reservation,
     record_status_change,
 )
@@ -62,7 +63,12 @@ class CapsuleViewSet(viewsets.ModelViewSet):
                 {"detail": "Cápsula já está aposentada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        record_status_change(capsule, Capsule.Status.RETIRED, reason="aposentada pela curadoria")
+        record_status_change(
+            capsule,
+            Capsule.Status.RETIRED,
+            actor=describe_actor(request),
+            reason="aposentada pela curadoria",
+        )
         return Response(self.get_serializer(capsule).data)
 
 
@@ -100,6 +106,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         record_status_change(
             reservation.capsule,
             Capsule.Status.CHECKED_OUT,
+            actor=describe_actor(request, fallback=f"visitante: {reservation.visitor_name}"),
             reason=f"retirada por {reservation.visitor_name}",
         )
         return Response(self.get_serializer(reservation).data)
@@ -124,11 +131,13 @@ class ReservationViewSet(viewsets.ModelViewSet):
         reservation.returned_at = timezone.now()
         reservation.return_notes = notes
         reservation.save(update_fields=["status", "returned_at", "return_notes"])
+        actor = describe_actor(request, fallback=f"visitante: {reservation.visitor_name}")
 
         if damaged:
             record_status_change(
                 reservation.capsule,
                 Capsule.Status.QUARANTINE,
+                actor=actor,
                 reason="devolução com dano",
             )
 
@@ -143,6 +152,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             record_status_change(
                 reservation.capsule,
                 Capsule.Status.AVAILABLE,
+                actor=actor,
                 reason="devolução sem dano",
             )
 

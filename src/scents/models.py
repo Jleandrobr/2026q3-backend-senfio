@@ -167,6 +167,18 @@ class StatusChange(models.Model):
         return f"{self.capsule}: {self.from_status} -> {self.to_status}"
 
 
+def describe_actor(request, fallback=""):
+    """Descreve quem fez a requisição, a partir do MuseumProfile autenticado (BR-007).
+
+    Sem perfil autenticado (ex.: visitante anônimo criando uma reserva), usa
+    `fallback` — nunca deixa em branco silenciosamente.
+    """
+    profile = getattr(getattr(request, "user", None), "museum_profile", None)
+    if profile is None:
+        return fallback
+    return f"{profile.display_name} ({profile.get_role_display()})"
+
+
 def record_status_change(capsule, to_status, actor="", reason=""):
     """Registra uma transição de status na trilha de auditoria.
 
@@ -184,7 +196,7 @@ def record_status_change(capsule, to_status, actor="", reason=""):
     capsule.save(update_fields=["status", "updated_at"])
 
 
-def expire_reservation(reservation, reason=""):
+def expire_reservation(reservation, reason="", actor="sistema"):
     """Expira uma reserva pendente vencida e libera a cápsula (BR-006).
 
     Compartilhado pelo comando recorrente de expiração e pelo checkout
@@ -193,4 +205,4 @@ def expire_reservation(reservation, reason=""):
     """
     reservation.status = Reservation.Status.EXPIRED
     reservation.save(update_fields=["status"])
-    record_status_change(reservation.capsule, Capsule.Status.AVAILABLE, reason=reason)
+    record_status_change(reservation.capsule, Capsule.Status.AVAILABLE, actor=actor, reason=reason)

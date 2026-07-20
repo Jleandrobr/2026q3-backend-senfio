@@ -54,9 +54,42 @@ def test_checkout_creates_audit_trail(api_client, capsule):
     response = api_client.post(f"/api/reservations/{reservation.id}/checkout/")
 
     assert response.status_code == 200
-    assert StatusChange.objects.filter(
-        capsule=capsule, to_status=Capsule.Status.CHECKED_OUT
-    ).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.CHECKED_OUT)
+    assert change.actor == "visitante: Bruno"
+
+
+def test_reservation_create_records_anonymous_visitor_as_actor(api_client, capsule):
+    response = api_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Ana",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.RESERVED)
+    assert change.actor == "visitante: Ana"
+
+
+def test_reservation_create_records_authenticated_profile_as_actor(curator_client, capsule):
+    response = curator_client.post(
+        "/api/reservations/",
+        {
+            "capsule": capsule.id,
+            "visitor_name": "Ana",
+            "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+            "pickup_deadline": (timezone.now() + timedelta(days=1, hours=2)).isoformat(),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.RESERVED)
+    assert change.actor == "curador-teste (Curador)"
 
 
 def test_checkout_after_deadline_expires_reservation_with_audit_trail(api_client, capsule):
@@ -76,7 +109,8 @@ def test_checkout_after_deadline_expires_reservation_with_audit_trail(api_client
     capsule.refresh_from_db()
     assert reservation.status == Reservation.Status.EXPIRED
     assert capsule.status == Capsule.Status.AVAILABLE
-    assert StatusChange.objects.filter(capsule=capsule, to_status=Capsule.Status.AVAILABLE).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.AVAILABLE)
+    assert change.actor == "sistema"
 
 
 def test_expire_reservations_command_expires_overdue_pending(capsule):
@@ -95,7 +129,8 @@ def test_expire_reservations_command_expires_overdue_pending(capsule):
     capsule.refresh_from_db()
     assert reservation.status == Reservation.Status.EXPIRED
     assert capsule.status == Capsule.Status.AVAILABLE
-    assert StatusChange.objects.filter(capsule=capsule, to_status=Capsule.Status.AVAILABLE).exists()
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.AVAILABLE)
+    assert change.actor == "sistema"
 
 
 def test_expire_reservations_command_ignores_pending_within_deadline(capsule):
@@ -151,6 +186,50 @@ def test_checkout_succeeds_after_curator_approval(api_client, curator_client, ca
     assert checkout_response.status_code == 200
     capsule.refresh_from_db()
     assert capsule.status == Capsule.Status.CHECKED_OUT
+
+
+def test_return_without_damage_records_actor(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        status=Reservation.Status.CHECKED_OUT,
+        starts_at=timezone.now() - timedelta(hours=1),
+        pickup_deadline=timezone.now() + timedelta(hours=1),
+        checked_out_at=timezone.now() - timedelta(hours=1),
+    )
+    capsule.status = Capsule.Status.CHECKED_OUT
+    capsule.save(update_fields=["status"])
+
+    response = api_client.post(f"/api/reservations/{reservation.id}/return/")
+
+    assert response.status_code == 200
+    capsule.refresh_from_db()
+    assert capsule.status == Capsule.Status.AVAILABLE
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.AVAILABLE)
+    assert change.actor == "visitante: Bruno"
+
+
+def test_return_with_damage_records_actor(api_client, capsule):
+    reservation = Reservation.objects.create(
+        capsule=capsule,
+        visitor_name="Bruno",
+        status=Reservation.Status.CHECKED_OUT,
+        starts_at=timezone.now() - timedelta(hours=1),
+        pickup_deadline=timezone.now() + timedelta(hours=1),
+        checked_out_at=timezone.now() - timedelta(hours=1),
+    )
+    capsule.status = Capsule.Status.CHECKED_OUT
+    capsule.save(update_fields=["status"])
+
+    response = api_client.post(
+        f"/api/reservations/{reservation.id}/return/", {"damaged": True}, format="json"
+    )
+
+    assert response.status_code == 200
+    capsule.refresh_from_db()
+    assert capsule.status == Capsule.Status.QUARANTINE
+    change = StatusChange.objects.get(capsule=capsule, to_status=Capsule.Status.QUARANTINE)
+    assert change.actor == "visitante: Bruno"
 
 
 @pytest.mark.django_db(transaction=True)

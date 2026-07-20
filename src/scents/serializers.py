@@ -10,6 +10,7 @@ from scents.models import (
     QualityCheck,
     Reservation,
     StatusChange,
+    describe_actor,
     record_status_change,
 )
 
@@ -89,9 +90,14 @@ class ReservationSerializer(serializers.ModelSerializer):
 
             validated_data["capsule"] = capsule
             reservation = Reservation.objects.create(**validated_data)
+            actor = describe_actor(
+                self.context.get("request"),
+                fallback=f"visitante: {reservation.visitor_name}",
+            )
             record_status_change(
                 reservation.capsule,
                 Capsule.Status.RESERVED,
+                actor=actor,
                 reason=f"reserva criada para {reservation.visitor_name}",
             )
 
@@ -115,6 +121,7 @@ class QualityCheckSerializer(serializers.ModelSerializer):
             record_status_change(
                 check.capsule,
                 Capsule.Status.QUARANTINE,
+                actor=describe_actor(self.context.get("request")),
                 reason=f"inspeção reprovada ({check.get_result_display()})",
             )
         return check
