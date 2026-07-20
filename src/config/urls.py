@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from scents.views import (
     BatchViewSet,
+    CapsuleOccupancyReportView,
     CapsuleViewSet,
     ExternalMuseumWebhookView,
     MuseumProfileViewSet,
@@ -24,4 +25,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
     path("api/webhooks/external-museum/", ExternalMuseumWebhookView.as_view()),
+    path("api/reports/occupancy/", CapsuleOccupancyReportView.as_view()),
 ]

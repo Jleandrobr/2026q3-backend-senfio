@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -221,3 +222,13 @@ class ExternalMuseumWebhookView(APIView):
             ExternalEventSerializer(event).data,
             status=response_status,
         )
+
+
+class CapsuleOccupancyReportView(APIView):
+    def get(self, request):
+        counts = {
+            row["status"]: row["count"]
+            for row in Capsule.objects.values("status").annotate(count=Count("id")).order_by()
+        }
+        report = {choice: counts.get(choice, 0) for choice, _ in Capsule.Status.choices}
+        return Response(report)
